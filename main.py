@@ -1,24 +1,21 @@
 # main.py
 
-import time
+from drone.controller import DroneController
+from drone.command_executor import CommandExecutor
+from voice.voice_controller import VoiceController
+from utils.config import CONNECTION_STRING
 
-from drone.connection import connect_vehicle
-from drone.telemetry import (is_armed, get_flight_mode)
 
 def main():
-    
-    vehicle = connect_vehicle()
-    
-    while True:
-       
-        mode = get_flight_mode(vehicle)
-        armed = is_armed(vehicle)
 
-        print(
-            f"Mode: {mode:<10} | Armed: {armed}"
-        )
+    print(f"Connecting to drone at {CONNECTION_STRING} ...")
 
-        time.sleep(1)
+    drone    = DroneController(CONNECTION_STRING)
+    executor = CommandExecutor(drone)
+    
+    voice = VoiceController(executor)
+    voice.run()
+
 
 if __name__ == "__main__":
     main()

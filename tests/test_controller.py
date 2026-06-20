@@ -1,9 +1,11 @@
 # test_controller.py
 
-from drone.controller import DroneController
 import time
+from drone.controller import DroneController
+from drone.command_executor import CommandExecutor
 
 drone = DroneController("udpin:0.0.0.0:14560")
+executor = CommandExecutor(drone)
 
 print("\n=== INITIAL STATE ===")
 print("Mode:", drone.get_mode())
@@ -12,7 +14,7 @@ print("Armed:", drone.is_armed())
 time.sleep(1)
 
 print("\n--- Testing ARM ---")
-drone.arm()
+executor.arm()
 
 assert drone.wait_for(lambda: drone.is_armed(), 5), "ARM state not reached"
 print("ARM OK")
@@ -20,7 +22,7 @@ print("ARM OK")
 time.sleep(1)
 
 print("\n--- Testing MODE ---")
-drone.set_mode("GUIDED")  # or "STABILIZE" depending on SITL config
+executor.set_mode("GUIDED")  # or "STABILIZE" depending on SITL config
 
 assert drone.wait_for(lambda: drone.get_mode() == "GUIDED", 5), "MODE not reached"
 print("MODE OK")
@@ -28,7 +30,7 @@ print("MODE OK")
 time.sleep(1)
 
 print("\n--- Testing DISARM ---")
-drone.disarm()
+executor.disarm()
 
 assert drone.wait_for(lambda: not drone.is_armed(), 5), "DISARM state not reached"
 print("DISARM OK")
