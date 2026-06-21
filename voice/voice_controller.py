@@ -6,6 +6,11 @@ from voice.intent_parser import IntentParser
 from voice.command_router import CommandRouter
 
 
+class _ShutdownRequested(Exception):
+    """Raised internally when the operator says 'disconnect'."""
+    pass
+
+
 class VoiceController:
 
     def __init__(self, executor):
@@ -13,9 +18,28 @@ class VoiceController:
         self.parser = IntentParser()
         self.router = CommandRouter(executor)
 
+    # ----------------------------------------------------------
+    # SHUTDOWN TRIGGER PHRASES
+    # Words that immediately stop the voice loop.
+    # Add variants here if STT mishears "disconnect".
+    # ----------------------------------------------------------
+    _DISCONNECT_PHRASES = {
+        "disconnect",
+        "drone disconnect",
+        "disconadge",
+        "shutdown",
+        "shut down",
+        "exit",
+        "quit",
+    }
+
+    def _is_disconnect(self, text: str) -> bool:
+        return text.strip().lower() in self._DISCONNECT_PHRASES
+
     def run(self):
 
         print("\n  Voice system started. Listening...")
+        print("  Say 'disconnect' to exit.\n")
 
         try:
             while True:
@@ -24,28 +48,35 @@ class VoiceController:
                 text = self.stt.listen()
 
                 if not text:
-                    # Heard nothing (silence / noise below VAD threshold)
                     continue
 
                 print(f"Heard:  {text!r}")
+
+                # -- Shutdown gate (checked before intent parsing)
+                if self._is_disconnect(text):
+                    print("\n[SHUTDOWN] Disconnect command received.")
+                    raise _ShutdownRequested
 
                 intent = self.parser.parse(text)
 
                 print(f"Intent: {intent}")
 
-                # Skip routing for unrecognised speech — avoids None result spam
                 if intent.action == "UNKNOWN":
-                    print("(No matching command [ignoring]")
+                    print("(No matching command — ignoring)")
                     continue
 
                 result = self.router.route(intent)
 
                 print(f"Result: {result}")
 
+        except _ShutdownRequested:
+            pass   # clean exit — falls through to finally
+
         except KeyboardInterrupt:
-            print("\n\n Shutting down voice system...")
+            print("\n[SHUTDOWN] Ctrl+C received.")
 
         finally:
-            # Close RealtimeSTT multiprocessing pipe → prevents ghost terminal output
+            print("\n[SHUTDOWN] Stopping STT engine...")
             self.stt.stop()
-            print("STT engine stopped.")
+            print("[SHUTDOWN] STT engine stopped.")
+            print("[SHUTDOWN] Vox-Flight disconnected. Goodbye.\n")

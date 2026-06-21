@@ -25,6 +25,9 @@ tests = [
     ("MODE LAND — allowed",              sm.check_mode,  dict(),                              True),
     ("MODE RTL — allowed",               sm.check_mode,  dict(),                              True),
     ("MODE INVALID — blocked",           sm.check_mode,  dict(),                              False),
+    ("DISARM — still airborne",          sm.check_disarm, dict(altitude=2.0),                 False),
+    ("DISARM — on ground",               sm.check_disarm, dict(altitude=0.3),                 True),
+    ("DISARM — already disarmed",        sm.check_disarm, dict(altitude=0.0),                 True),
 ]
 
 # Special handling for check_mode which needs a mode argument

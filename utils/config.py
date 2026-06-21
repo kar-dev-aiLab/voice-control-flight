@@ -34,7 +34,7 @@ STT_MIN_RECORDING_LENGTH = 0.5
 STT_MIN_GAP_RECORDINGS   = 1.0       # prevents buffer bleed between utterances
 
 # ── STT: Fuzzy matching ───────────────────────────────────────────────────────
-STT_FUZZY_THRESHOLD      = 68        # slightly lowered from 70 to catch 'move for life'
+STT_FUZZY_THRESHOLD      = 70        # slightly lowered from 70 to catch 'move for life'
 
 # ── STT: Hallucination filter ─────────────────────────────────────────────────
 STT_HALLUCINATION_PHRASES = {

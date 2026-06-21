@@ -2,7 +2,8 @@
 # Wraps RealtimeSTT + cleaning pipeline for drone command recognition.
 
 from RealtimeSTT import AudioToTextRecorder
-import re
+import os
+import time
 import logging
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOptionalMemberAccess=false
@@ -43,6 +44,7 @@ class STTEngine:
 
         logger.info("STT recorder ready.")
 
+
     def listen(self) -> str:
         """
         Block until one utterance is transcribed.
@@ -51,13 +53,28 @@ class STTEngine:
         raw = self.recorder.text()
         return self._clean(raw)
 
+
     def stop(self):
-        """Shut down recorder and close multiprocessing pipe."""
+        """
+        Shut down recorder and close multiprocessing pipe.
+        """
         try:
-            self.recorder.stop()
+            self.recorder.abort()   # stop any in-progress transcription first
         except Exception:
             pass
+        
+        try:
+            self.recorder.stop()    # then shut down the audio subprocess
+        except Exception:
+            pass
+
+        logging.getLogger("root").setLevel(logging.CRITICAL)
+        logging.getLogger("RealtimeSTT").setLevel(logging.CRITICAL)
+        
+        # Small pause to let subprocess die quietly before os._exit
+        time.sleep(0.3)
         logger.info("STT recorder stopped.")
+
 
     def _clean(self, raw: str) -> str:
         if not raw:

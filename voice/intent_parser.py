@@ -40,6 +40,13 @@ class Intent:
 # ─────────────────────────────────────────────────────────────────────────────
 
 _EXACT_CHECKS = [
+
+    # ── ROTATE mishear guard ──────────────────────────────────────────────────
+    (r"\btan\s+or\s+right\b",           "ROTATE",   {"direction": "right"}),
+    (r"\btan\s+or\s+left\b",            "ROTATE",   {"direction": "left"}),
+    (r"\btenor\s+right\b",              "ROTATE",   {"direction": "right"}),
+    (r"\btenor\s+left\b",               "ROTATE",   {"direction": "left"}),
+
     # ── ARM / DISARM ─────────────────────────────────────────────────────────
     (r"\bdisarm\b",                     "DISARM",   {}),
     (r"\barm\b",                        "ARM",      {}),
@@ -50,13 +57,15 @@ _EXACT_CHECKS = [
     (r"\bland\b",                       "LAND",     {}),
     (r"\btouch\s*down\b",               "LAND",     {}),
 
-    # ── ROTATE — must come before bare left/right ─────────────────────────────
+    # ── ROTATE ────────────────────────────────────────────────────────────────
     (r"\bturn\s+left\b",                "ROTATE",   {"direction": "left"}),
     (r"\bturn\s+right\b",               "ROTATE",   {"direction": "right"}),
     (r"\byaw\s+left\b",                 "ROTATE",   {"direction": "left"}),
     (r"\byaw\s+right\b",                "ROTATE",   {"direction": "right"}),
     (r"\brotate\s+left\b",              "ROTATE",   {"direction": "left"}),
     (r"\brotate\s+right\b",             "ROTATE",   {"direction": "right"}),
+    (r"\bspin\s+left\b",                "ROTATE",   {"direction": "left"}),
+    (r"\bspin\s+right\b",               "ROTATE",   {"direction": "right"}),
 
     # ── MOVE: forward / backward ─────────────────────────────────────────────
     (r"\bforward\b",                    "MOVE",     {"direction": "forward"}),
@@ -66,9 +75,14 @@ _EXACT_CHECKS = [
 
     # ── MOVE: left / right ───────────────────────────────────────────────────
     (r"\bslide\s+left\b",               "MOVE",     {"direction": "left"}),
-    (r"\bleft\b",                       "MOVE",     {"direction": "left"}),
-    (r"\bright\b",                      "MOVE",     {"direction": "right"}),
-
+    (r"\bmove\s+left\b",                "MOVE",     {"direction": "left"}),
+    (r"\bgo\s+left\b",                  "MOVE",     {"direction": "left"}),
+    (r"\bfly\s+left\b",                 "MOVE",     {"direction": "left"}),
+    (r"\bslide\s+right\b",              "MOVE",     {"direction": "right"}),
+    (r"\bmove\s+right\b",               "MOVE",     {"direction": "right"}),
+    (r"\bgo\s+right\b",                 "MOVE",     {"direction": "right"}),
+    (r"\bfly\s+right\b",                "MOVE",     {"direction": "right"}),
+    
     # ── MOVE: up / down ──────────────────────────────────────────────────────
     (r"\bascend\b",                     "MOVE",     {"direction": "up"}),
     (r"\bclimb\b",                      "MOVE",     {"direction": "up"}),
@@ -134,6 +148,11 @@ _FUZZY_VOCAB = [
     ("go forward",                      "MOVE",     {"direction": "forward"}),
     ("fly forward",                     "MOVE",     {"direction": "forward"}),
     ("move for",                        "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move for what",                        "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move for one",                    "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move 4 what",                   "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move 4 one",                        "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move for 1",                        "MOVE",     {"direction": "forward"}),  # mishear fix
 
     # ── MOVE BACKWARD ────────────────────────────────────────────────────────
     ("move backward",                   "MOVE",     {"direction": "backward"}),
@@ -167,6 +186,8 @@ _FUZZY_VOCAB = [
     # ── ROTATE — includes Whisper mishear 'and right' ────────────────────────
     ("turn left",                       "ROTATE",   {"direction": "left"}),
     ("ten left",                        "ROTATE",   {"direction": "left"}),   # mishear fix
+    ("tan or left",                     "ROTATE",   {"direction": "left"}),
+    ("tenor left",                      "ROTATE",   {"direction": "left"}),
     ("10 left",                         "ROTATE",   {"direction": "left"}),   # mishear fix
     ("10 loved",                        "ROTATE",   {"direction": "left"}),   # mishear fix
     ("turn the left",                   "ROTATE",   {"direction": "left"}),
@@ -175,6 +196,8 @@ _FUZZY_VOCAB = [
     ("spin left",                       "ROTATE",   {"direction": "left"}),
     ("turn right",                      "ROTATE",   {"direction": "right"}),
     ("ten right",                       "ROTATE",   {"direction": "right"}),  # mishear fix
+    ("tan or right",                    "ROTATE",   {"direction": "right"}),
+    ("tenor right",                     "ROTATE",   {"direction": "right"}),
     ("10 right",                        "ROTATE",   {"direction": "right"}),
     ("rotate right",                    "ROTATE",   {"direction": "right"}),
     ("yaw right",                       "ROTATE",   {"direction": "right"}),

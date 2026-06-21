@@ -18,15 +18,24 @@ class SafetyRules:
     # DISARM
     # ----------------------------------------------------------
     def can_disarm(self, state):
+        if state.altitude is not None and state.altitude > 1.0:
+            return False, "STILL_AIRBORNE"
         return True, "OK"
 
     # ----------------------------------------------------------
     # SET MODE
     # ----------------------------------------------------------
     def can_set_mode(self, state, mode):
+        
         allowed = {"STABILIZE", "GUIDED", "LOITER", "LAND", "RTL"}
+        
         if mode not in allowed:
             return False, "INVALID_MODE"
+        
+        # Block STABILIZE while airborne - cuts throttle and disarms in SITL
+        if mode == "STABILIZE" and state.altitude is not None and state.altitude > 0.5:
+            return False, "STABILIZE_BLOCKED_AIRBORNE"
+        
         return True, "OK"
 
     # ----------------------------------------------------------

@@ -11,7 +11,7 @@ from safety.safety_manager import SafetyManager
 logger = logging.getLogger("CommandExecutor")
 
 # Velocity magnitude for move commands (m/s)
-MOVE_SPEED      = 4.0
+MOVE_SPEED      = 8.0
 # Duration to send velocity setpoints (seconds)
 MOVE_DURATION   = 1.5
 # Yaw rate for rotate commands (deg/s)
@@ -85,12 +85,19 @@ class CommandExecutor:
     # =========================================================
     def arm(self):
 
+        start_time = time.time()
+
         decision = self.safety.check_arm(self.state)
 
         if not decision.allowed:
-            return self._build_result(
-                "ARM", False, decision.reason, False, time.time()
-            )
+            return self._build_result("ARM", False, decision.reason, False, start_time)
+
+        # Auto-switch to GUIDED before arming — required by ArduCopter for takeoff
+        if self.state.mode != "GUIDED":
+            logger.info("[ARM] Auto-switching to GUIDED mode before arming...")
+            mode_result = self._set_mode_raw("GUIDED", start_time)
+            if not mode_result.success:
+                return self._build_result("ARM", False, "GUIDED_MODE_FAILED", False, start_time)
 
         return self.execute_command(
             "ARM",
@@ -109,6 +116,10 @@ class CommandExecutor:
     # DISARM
     # =========================================================
     def disarm(self):
+
+        # Already disarmed (RTL auto-lands and disarms) — treat as success
+        if not self.state.armed:
+            return self._build_result("DISARM", True, "ALREADY_DISARMED", True, time.time())
 
         decision = self.safety.check_disarm(self.state)
 

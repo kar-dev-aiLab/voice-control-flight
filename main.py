@@ -1,5 +1,6 @@
 # main.py
 
+import os
 from drone.controller import DroneController
 from drone.command_executor import CommandExecutor
 from voice.voice_controller import VoiceController
@@ -12,9 +13,12 @@ def main():
 
     drone    = DroneController(CONNECTION_STRING)
     executor = CommandExecutor(drone)
-    
+
     voice = VoiceController(executor)
+
     voice.run()
+    os._exit(0)
+
 
 
 if __name__ == "__main__":
