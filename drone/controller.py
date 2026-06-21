@@ -27,6 +27,7 @@ class DroneState:
         self.mode: Optional[str] = None
         self.last_heartbeat: Any = None
         self.system_status: Any = None
+        self.altitude: Optional[float] = None
         
 
 class DroneController:
@@ -85,7 +86,10 @@ class DroneController:
             elif mtype == "COMMAND_ACK":
                 with self._ack_lock:
                     self.ack_buffer.append(msg)
-    
+            
+            elif mtype == "GLOBAL_POSITION_INT":
+                # relative_alt is in mm — convert to metres
+                self.state.altitude = msg.relative_alt / 1000.0
 
     # =========================================================
     # STATE QUERY API

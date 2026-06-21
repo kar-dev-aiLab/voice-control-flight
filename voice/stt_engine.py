@@ -1,21 +1,15 @@
 # stt_engine.py
-# Wraps RealtimeSTT + fuzzy post-processing for drone command recognition.
-#
-# Pipeline per utterance:
-#   mic → WebRTC VAD → Silero VAD → faster-whisper → hallucination filter
-#   → text out → IntentParser (exact + fuzzy matching)
+# Wraps RealtimeSTT + cleaning pipeline for drone command recognition.
 
 from RealtimeSTT import AudioToTextRecorder
+import re
+import logging
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOptionalMemberAccess=false
-
-import logging
 
 from utils.config import (
     STT_MODEL,
     STT_LANGUAGE,
-    #STT_BEAM_SIZE,
-    #STT_BEST_OF,
     STT_INITIAL_PROMPT,
     STT_WEBRTC_SENSITIVITY,
     STT_SILERO_SENSITIVITY,
@@ -32,88 +26,79 @@ logger = logging.getLogger("STTEngine")
 class STTEngine:
 
     def __init__(self):
-
-        logger.info(
-            f"Initializing STT — model={STT_MODEL!r}, "
-            f"language={STT_LANGUAGE!r}"
-        )
+        logger.info(f"Initializing STT — model={STT_MODEL!r}, language={STT_LANGUAGE!r}")
 
         self.recorder: AudioToTextRecorder = AudioToTextRecorder(
-
-            # ── Model ────────────────────────────────────────
             model=STT_MODEL,
             language=STT_LANGUAGE,
-
-            # ── Whisper accuracy ─────────────────────────────
-            #beam_size=STT_BEAM_SIZE,
-            #best_of=STT_BEST_OF,
             initial_prompt=STT_INITIAL_PROMPT,
-
-            # ── VAD: detection ───────────────────────────────
             webrtc_sensitivity=STT_WEBRTC_SENSITIVITY,
             silero_sensitivity=STT_SILERO_SENSITIVITY,
             silero_deactivity_detection=STT_SILERO_DEACTIVITY,
-
-            # ── VAD: timing ──────────────────────────────────
             post_speech_silence_duration=STT_POST_SPEECH_SILENCE,
             min_length_of_recording=STT_MIN_RECORDING_LENGTH,
             min_gap_between_recordings=STT_MIN_GAP_RECORDINGS,
-
-            # ── Misc ─────────────────────────────────────────
-            spinner=False,          # no halo spinner — cleaner console output
+            spinner=False,
         )
 
         logger.info("STT recorder ready.")
 
-    # ─────────────────────────────────────────────────────────
-    # PUBLIC API
-    # ─────────────────────────────────────────────────────────
-
     def listen(self) -> str:
         """
-        Block until one utterance is fully transcribed.
-
-        Returns:
-            Cleaned, lowercased text string.
-            Empty string if nothing heard or hallucination detected.
+        Block until one utterance is transcribed.
+        Returns cleaned, lowercased text. Empty string if filtered.
         """
         raw = self.recorder.text()
         return self._clean(raw)
 
     def stop(self):
-        """
-        Cleanly shut down the recorder and its multiprocessing pipe.
-        Must be called on exit — prevents ghost terminal output.
-        """
+        """Shut down recorder and close multiprocessing pipe."""
         try:
             self.recorder.stop()
         except Exception:
             pass
         logger.info("STT recorder stopped.")
 
-    # ─────────────────────────────────────────────────────────
-    # INTERNAL: TEXT CLEANING
-    # ─────────────────────────────────────────────────────────
-
     def _clean(self, raw: str) -> str:
-        """
-        Strip, lowercase, and filter out Whisper hallucinations.
-
-        Whisper commonly outputs artefacts like "Thank you.", ".", "You"
-        when it hears background noise. These are useless and would
-        spam the intent parser, so we discard them here.
-        """
         if not raw:
             return ""
 
         text = raw.strip().lower()
-
-        # Remove trailing punctuation Whisper sometimes adds
         text = text.rstrip(".!?,;")
         text = text.strip()
 
         if text in STT_HALLUCINATION_PHRASES:
             logger.debug(f"Hallucination filtered: {raw!r}")
             return ""
+
+        # Deduplicate repeated phrases
+        # e.g. "go down go down go down" → "go down"
+        # Caused by VAD capturing mic echo or repeated utterance
+        text = self._deduplicate(text)
+
+        return text
+
+    def _deduplicate(self, text: str) -> str:
+        """
+        Remove repeated phrase segments from VAD echo capture.
+        'go down go down go down' → 'go down'
+        'turn left turn left'     → 'turn left'
+        """
+        words = text.split()
+        if len(words) < 4:
+            return text  # too short to have meaningful repetition
+
+        # Try chunk sizes from half down to 2 words
+        for chunk_size in range(len(words) // 2, 1, -1):
+            chunk = words[:chunk_size]
+            # Check if the whole text is just this chunk repeated
+            repetitions = len(words) // chunk_size
+            remainder  = len(words) % chunk_size
+            if repetitions >= 2 and remainder == 0:
+                reconstructed = chunk * repetitions
+                if reconstructed == words:
+                    deduped = " ".join(chunk)
+                    logger.debug(f"Deduplicated: {text!r} → {deduped!r}")
+                    return deduped
 
         return text

@@ -15,7 +15,7 @@ class VoiceController:
 
     def run(self):
 
-        print("\n🎙  Voice system started. Listening...")
+        print("\n  Voice system started. Listening...")
 
         try:
             while True:
@@ -35,7 +35,7 @@ class VoiceController:
 
                 # Skip routing for unrecognised speech — avoids None result spam
                 if intent.action == "UNKNOWN":
-                    print("(no matching command — ignoring)")
+                    print("(No matching command [ignoring]")
                     continue
 
                 result = self.router.route(intent)

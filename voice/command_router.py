@@ -1,3 +1,5 @@
+# command_router.py
+
 class CommandRouter:
 
     def __init__(self, executor):
@@ -13,5 +15,21 @@ class CommandRouter:
 
         if intent.action == "SET_MODE":
             return self.executor.set_mode(intent.params["mode"])
+
+        if intent.action == "TAKEOFF":
+            altitude = intent.params.get("altitude", 10.0)
+            return self.executor.takeoff(altitude)
+
+        if intent.action == "LAND":
+            return self.executor.land()
+
+        if intent.action == "MOVE":
+            return self.executor.move(intent.params["direction"])
+
+        if intent.action == "ROTATE":
+            return self.executor.rotate(intent.params["direction"])
+
+        if intent.action == "RTL":
+            return self.executor.rtl()
 
         return None

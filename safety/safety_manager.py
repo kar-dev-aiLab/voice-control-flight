@@ -10,9 +10,7 @@ class SafetyManager:
         self.rules = SafetyRules()
 
     def check_arm(self, state):
-
         ok, reason = self.rules.can_arm(state)
-
         return SafetyResult(
             allowed=ok,
             reason=reason,
@@ -20,9 +18,7 @@ class SafetyManager:
         )
 
     def check_disarm(self, state):
-
         ok, reason = self.rules.can_disarm(state)
-
         return SafetyResult(
             allowed=ok,
             reason=reason,
@@ -30,11 +26,25 @@ class SafetyManager:
         )
 
     def check_mode(self, state, mode):
-
         ok, reason = self.rules.can_set_mode(state, mode)
-
         return SafetyResult(
             allowed=ok,
             reason=reason,
             risk_level="LOW" if ok else "MEDIUM"
+        )
+
+    def check_takeoff(self, state):
+        ok, reason = self.rules.can_takeoff(state)
+        return SafetyResult(
+            allowed=ok,
+            reason=reason,
+            risk_level="LOW" if ok else "HIGH"
+        )
+
+    def check_move(self, state):
+        ok, reason = self.rules.can_move(state)
+        return SafetyResult(
+            allowed=ok,
+            reason=reason,
+            risk_level="LOW" if ok else "HIGH"
         )

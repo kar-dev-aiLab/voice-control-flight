@@ -1,1 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
 .venv/
+venv/
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Secrets
+.env
+
+# Test output
+coverage/
+.pytest_cache/
+
+# Temporary files
+tmp/
+temp/
+
+# OS
+Thumbs.db
+.DS_Store

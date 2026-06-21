@@ -1,5 +1,5 @@
 # config.py
-# All adjustable settings live here — one place to tune everything.
+# All adjustable settings — one place to tune everything.
 
 # ── MAVLink ──────────────────────────────────────────────────────────────────
 CONNECTION_STRING        = "udpin:0.0.0.0:14560"
@@ -10,57 +10,41 @@ DEFAULT_TAKEOFF_ALTITUDE = 5          # metres
 
 # ── STT: Model ───────────────────────────────────────────────────────────────
 STT_MODEL                = "base"     # tiny | base | small | medium
-                                      # "tiny"  → fastest, least accurate
-                                      # "base"  → good balance for drone commands
-                                      # "small" → best accuracy, slower on CPU
-STT_LANGUAGE             = "en"       # lock to English — avoids mis-detection
+STT_LANGUAGE             = "en"
 
-# ── STT: Whisper transcription quality ───────────────────────────────────────
-#STT_BEAM_SIZE            = 5          # higher = more accurate, slightly slower
-#STT_BEST_OF              = 5          # candidates Whisper considers internally
-
-# Whisper sees this text before your speech — biases it toward drone vocabulary.
-# Do NOT put a period at the end (causes Whisper to treat it as sentence end).
+# ── STT: Whisper prompt bias ──────────────────────────────────────────────────
+# Updated to reflect actual operator phrases after diagnostic tuning.
+# 'slide left' replaces 'move left' — more phonetically distinct for Whisper.
+# 'come home' replaces 'return home' — avoids go-down echo confusion.
 STT_INITIAL_PROMPT       = (
-    "Drone flight commands: arm, disarm, takeoff, land, "
-    "guided, stabilize, loiter, return to home"
+    "Drone flight commands: drone arm, drone disarm, drone takeoff, "
+    "drone land, move forward, move backward, slide left, move right, "
+    "go up, go down, turn left, turn right, "
+    "guided mode, stabilize mode, loiter mode, come home"
 )
 
 # ── STT: Voice Activity Detection (VAD) ──────────────────────────────────────
-# WebRTC: first gate — fast, CPU-only
-# 0 = least aggressive (picks up quiet voices)
-# 3 = most aggressive (ignores soft sounds, good for noisy rooms)
 STT_WEBRTC_SENSITIVITY   = 3
-
-# Silero: second gate — neural network, more accurate than WebRTC alone
-# 0.0 = picks up everything  |  1.0 = only very confident speech
-STT_SILERO_SENSITIVITY   = 0.6
-
-# Use Silero also for END-of-speech detection (not just start).
-# More robust in noisy environments at the cost of slight extra latency.
+STT_SILERO_SENSITIVITY   = 0.7
 STT_SILERO_DEACTIVITY    = True
 
 # ── STT: Recording timing ────────────────────────────────────────────────────
-# How long silence must last after speech before recording stops.
-# Lower = faster response. 0.5s is safe for crisp single-word commands.
-STT_POST_SPEECH_SILENCE  = 0.5       # seconds (default is 0.6)
-
-# Minimum recording length — reject anything shorter (filters mic pops).
-STT_MIN_RECORDING_LENGTH = 0.3       # seconds
-
-# Minimum gap between two consecutive recordings.
-STT_MIN_GAP_RECORDINGS   = 0.2       # seconds
+STT_POST_SPEECH_SILENCE  = 0.6
+STT_MIN_RECORDING_LENGTH = 0.5
+STT_MIN_GAP_RECORDINGS   = 1.0       # prevents buffer bleed between utterances
 
 # ── STT: Fuzzy matching ───────────────────────────────────────────────────────
-# Minimum rapidfuzz similarity score (0–100) to accept a keyword match.
-# Below this threshold the utterance is treated as UNKNOWN.
-STT_FUZZY_THRESHOLD      = 70        # tune down if too many misses
+STT_FUZZY_THRESHOLD      = 68        # slightly lowered from 70 to catch 'move for life'
 
 # ── STT: Hallucination filter ─────────────────────────────────────────────────
-# Whisper sometimes outputs these when it hears silence/noise.
-# Any transcription that exactly matches one of these is discarded.
 STT_HALLUCINATION_PHRASES = {
     ".", "..", "...", "thank you", "thanks",
     "thank you.", "thanks.", "you", "the", "",
     "bye", "bye.", "goodbye", "okay", "ok",
+    "i don't know", "i don't know.", "hmm", "um", "uh",
+    # VAD echo patterns — Whisper repeating the same phrase
+    "go down go down go down",
+    "go up go up go up",
+    "move right move right move right",
+    "move left move left move left",
 }

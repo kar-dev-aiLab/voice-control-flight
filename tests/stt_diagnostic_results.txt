@@ -1,0 +1,83 @@
+STT DIAGNOSTIC v2 RESULTS
+============================================================
+
+[PASS] Said: 'drone arm'
+       Whisper heard: 'drone arm'
+       Intent got:    ARM  {}
+       Expected:      ARM  {}
+
+[PASS] Said: 'drone disarm'
+       Whisper heard: 'drone disarm'
+       Intent got:    DISARM  {}
+       Expected:      DISARM  {}
+
+[PASS] Said: 'drone takeoff'
+       Whisper heard: 'drone, takeoff'
+       Intent got:    TAKEOFF  {}
+       Expected:      TAKEOFF  {}
+
+[PASS] Said: 'drone land'
+       Whisper heard: 'drone land'
+       Intent got:    LAND  {}
+       Expected:      LAND  {}
+
+[PASS] Said: 'move forward'
+       Whisper heard: 'move forward'
+       Intent got:    MOVE  {'direction': 'forward'}
+       Expected:      MOVE  {'direction': 'forward'}
+
+[PASS] Said: 'move backward'
+       Whisper heard: 'move backward'
+       Intent got:    MOVE  {'direction': 'backward'}
+       Expected:      MOVE  {'direction': 'backward'}
+
+[PASS] Said: 'slide left'
+       Whisper heard: 'slide left'
+       Intent got:    MOVE  {'direction': 'left'}
+       Expected:      MOVE  {'direction': 'left'}
+
+[PASS] Said: 'move right'
+       Whisper heard: 'move right'
+       Intent got:    MOVE  {'direction': 'right'}
+       Expected:      MOVE  {'direction': 'right'}
+
+[PASS] Said: 'go up'
+       Whisper heard: 'go up'
+       Intent got:    MOVE  {'direction': 'up'}
+       Expected:      MOVE  {'direction': 'up'}
+
+[PASS] Said: 'go down'
+       Whisper heard: 'go down'
+       Intent got:    MOVE  {'direction': 'down'}
+       Expected:      MOVE  {'direction': 'down'}
+
+[FAIL] Said: 'turn left'
+       Whisper heard: '10-loved'
+       Intent got:    UNKNOWN  {}
+       Expected:      ROTATE  {'direction': 'left'}
+
+[FAIL] Said: 'turn right'
+       Whisper heard: '10 right'
+       Intent got:    MOVE  {'direction': 'right'}
+       Expected:      ROTATE  {'direction': 'right'}
+
+[PASS] Said: 'guided mode'
+       Whisper heard: 'guided mode'
+       Intent got:    SET_MODE  {'mode': 'GUIDED'}
+       Expected:      SET_MODE  {'mode': 'GUIDED'}
+
+[PASS] Said: 'stabilize mode'
+       Whisper heard: 'stabilize mode'
+       Intent got:    SET_MODE  {'mode': 'STABILIZE'}
+       Expected:      SET_MODE  {'mode': 'STABILIZE'}
+
+[PASS] Said: 'loiter mode'
+       Whisper heard: 'loiter mode'
+       Intent got:    SET_MODE  {'mode': 'LOITER'}
+       Expected:      SET_MODE  {'mode': 'LOITER'}
+
+[PASS] Said: 'come home'
+       Whisper heard: 'come home'
+       Intent got:    RTL  {}
+       Expected:      RTL  {}
+
