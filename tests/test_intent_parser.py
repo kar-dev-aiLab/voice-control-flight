@@ -33,9 +33,11 @@ class TestExactMatch:
     def test_disarm_with_context(self):
         assert p.parse('disarm the drone').action == 'DISARM'
 
-    def test_land_maps_to_disarm(self):
-        # 'land' currently maps to DISARM until takeoff/land commands are added
-        assert p.parse('land').action == 'DISARM'
+    def test_land(self):
+        assert p.parse('land').action == 'LAND'
+
+    def test_touchdown(self):
+        assert p.parse('touchdown').action == 'LAND'
 
     def test_guided_single(self):
         i = p.parse('guided')

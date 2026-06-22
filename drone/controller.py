@@ -33,18 +33,28 @@ class DroneState:
 class DroneController:
 
     def __init__(self, connection_string: str):
-
         self.conn: Any = mavutil.mavlink_connection(connection_string)
         self.state = DroneState()
         self.ack_buffer = deque(maxlen=50)
         self._ack_lock = threading.Lock()
 
-
         print("Waiting for heartbeat...")
-        self.conn.wait_heartbeat()
+        hb = self.conn.wait_heartbeat()   # capture the heartbeat from SITL
+
+        # ── Seed state from first heartbeat so system_status is never None ──
+        if hb:
+            self.state.system_status  = hb.system_status
+            self.state.mode           = mavutil.mode_string_v10(hb)
+            self.state.last_heartbeat = hb
+            # ONLY the MAV_MODE_FLAG bit is authoritative for armed state
+            self.state.armed = bool(
+                hb.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+            )
+
+        # ── Identify this connection as a GCS ──
+        self.conn.mav.srcSystem = 255
 
         self._start_telemetry_thread()
-
         print(f"Connected to system {self.conn.target_system}")
 
     # =========================================================
@@ -69,12 +79,7 @@ class DroneController:
 
                 self.state.last_heartbeat = msg
 
-                self.state.armed = bool(
-                    msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
-                ) or msg.system_status in (
-                    mavutil.mavlink.MAV_STATE_ACTIVE,
-                    mavutil.mavlink.MAV_STATE_CRITICAL
-                )
+                self.state.armed = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
 
                 self.state.mode = mavutil.mode_string_v10(msg)
 
@@ -94,6 +99,23 @@ class DroneController:
     # =========================================================
     # STATE QUERY API
     # =========================================================
+    def set_home_position(self):
+        """
+        Set home to current vehicle position.
+        Call once after connection before arming.
+        """
+        self.conn.mav.command_long_send(
+            self.conn.target_system,
+            self.conn.target_component,
+            mavutil.mavlink.MAV_CMD_DO_SET_HOME,
+            0,
+            1,          # param1=1 means use current position
+            0, 0, 0,    # param2-4 unused
+            0, 0, 0     # lat, lon, alt (ignored when param1=1)
+        )
+        logger.info("[HOME] Home position set to current location.")
+
+
     def is_armed(self) -> bool:
         return self.state.armed
 

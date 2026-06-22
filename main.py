@@ -1,6 +1,19 @@
 # main.py
 
 import os
+import logging
+
+# ── Suppress noisy third-party output ────────────────────────────────────────
+# ctranslate2 C++ warning: "compute type converted from float16 to float32"
+os.environ["CT2_VERBOSE"] = "0"
+
+# faster_whisper logs "Processing audio..." and "VAD filter removed..." every single utterance
+logging.getLogger("faster_whisper").setLevel(logging.WARNING)
+
+# RealtimeSTT logs through the root logger: "Initializing faster_whisper model..."
+logging.getLogger("root").setLevel(logging.WARNING)
+# ─────────────────────────────────────────────────────────────────────────────
+
 from drone.controller import DroneController
 from drone.command_executor import CommandExecutor
 from voice.voice_controller import VoiceController
@@ -12,13 +25,16 @@ def main():
     print(f"Connecting to drone at {CONNECTION_STRING} ...")
 
     drone    = DroneController(CONNECTION_STRING)
+
+    # Set home position immediately after connection
+    drone.set_home_position()
+
     executor = CommandExecutor(drone)
 
     voice = VoiceController(executor)
 
     voice.run()
     os._exit(0)
-
 
 
 if __name__ == "__main__":
