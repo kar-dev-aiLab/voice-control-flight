@@ -1,5 +1,8 @@
 # command_router.py
 
+from utils.config import DEFAULT_TAKEOFF_ALTITUDE
+
+
 class CommandRouter:
 
     def __init__(self, executor):
@@ -17,7 +20,7 @@ class CommandRouter:
             return self.executor.set_mode(intent.params["mode"])
 
         if intent.action == "TAKEOFF":
-            altitude = intent.params.get("altitude", 10.0)
+            altitude = intent.params.get("altitude", DEFAULT_TAKEOFF_ALTITUDE)
             return self.executor.takeoff(altitude)
 
         if intent.action == "LAND":

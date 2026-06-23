@@ -116,17 +116,17 @@ class CommandExecutor:
     # DISARM
     # =========================================================
     def disarm(self):
-
+        
+        start_time = time.time()
         # Already disarmed (RTL auto-lands and disarms) — treat as success
         if not self.state.armed:
-            return self._build_result("DISARM", True, "ALREADY_DISARMED", True, time.time())
+            return self._build_result("DISARM", True, "ALREADY_DISARMED", True, start_time)
 
         decision = self.safety.check_disarm(self.state)
 
         if not decision.allowed:
             return self._build_result(
-                "DISARM", False, decision.reason, False, time.time()
-            )
+                "DISARM", False, decision.reason, False, start_time)
 
         return self.execute_command(
             "DISARM",

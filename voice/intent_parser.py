@@ -40,6 +40,11 @@ class Intent:
 # ─────────────────────────────────────────────────────────────────────────────
 
 _EXACT_CHECKS = [
+    
+    # misclassified as MOVE instead of ROTATE.
+    (r"\b10\s+right\b",                 "ROTATE",   {"direction": "right"}),
+    (r"\b10\s+left\b",                  "ROTATE",   {"direction": "left"}),
+    (r"\b10[\s-]love[d]?\b",            "ROTATE",   {"direction": "left"}),  # "10-loved"
 
     # ── ROTATE mishear guard ──────────────────────────────────────────────────
     (r"\btan\s+or\s+right\b",           "ROTATE",   {"direction": "right"}),
@@ -50,11 +55,16 @@ _EXACT_CHECKS = [
     # ── ARM / DISARM ─────────────────────────────────────────────────────────
     (r"\bdisarm\b",                     "DISARM",   {}),
     (r"\barm\b",                        "ARM",      {}),
+    (r"\bdrone\s+arm\b",                "ARM",      {}),
+    (r"\barm\s+(?:the\s+)?drone\b",     "ARM",      {}),
+    (r"^arm$",                          "ARM",      {}),   # bare "arm" only if it's the entire utterance
 
     # ── TAKEOFF / LAND ───────────────────────────────────────────────────────
     (r"\btake\s*off\b",                 "TAKEOFF",  {}),
     (r"\blift\s*off\b",                 "TAKEOFF",  {}),
     (r"\bland\b",                       "LAND",     {}),
+    (r"\bland\s+the\s+drone\b",         "LAND",     {}),
+    (r"\bdrone\s+land\b",               "LAND",     {}),
     (r"\btouch\s*down\b",               "LAND",     {}),
 
     # ── ROTATE ────────────────────────────────────────────────────────────────
@@ -84,16 +94,20 @@ _EXACT_CHECKS = [
     (r"\bfly\s+right\b",                "MOVE",     {"direction": "right"}),
     
     # ── MOVE: up / down ──────────────────────────────────────────────────────
-    (r"\bascend\b",                     "MOVE",     {"direction": "up"}),
+    #(r"\bascend\b",                     "MOVE",     {"direction": "up"}),
     (r"\bclimb\b",                      "MOVE",     {"direction": "up"}),
     (r"\bgo\s+up\b",                    "MOVE",     {"direction": "up"}),
-    (r"\bup\b",                         "MOVE",     {"direction": "up"}),
-    (r"\bdescend\b",                    "MOVE",     {"direction": "down"}),
-    (r"\bgo\s+down\b",                  "MOVE",     {"direction": "down"}),
-    (r"\bdown\b",                       "MOVE",     {"direction": "down"}),
+    (r"\bmove\s+up\b",                  "MOVE",     {"direction": "up"}),
+    (r"\bfly\s+up\b",                   "MOVE",     {"direction": "up"}),
+    #(r"\bdescend\b",                    "MOVE",     {"direction": "down"}),
+    #(r"\bgo\s+down\b",                  "MOVE",     {"direction": "down"}),
+    (r"\b(move\s+down|descend)\b",      "MOVE",     {"direction": "down"}),
+    (r"\b(move\s+up|ascend)\b",         "MOVE",     {"direction": "up"}),
+    (r"\bmove\s+down\b",                "MOVE",     {"direction": "down"}),
+    (r"\bfly\s+down\b",                 "MOVE",     {"direction": "down"}),
 
     # ── MODES ────────────────────────────────────────────────────────────────
-    (r"\bguided?\b",                    "SET_MODE", {"mode": "GUIDED"}),
+    (r"\bguided\b",                     "SET_MODE", {"mode": "GUIDED"}),
     (r"\bstabili[sz]e?\b",              "SET_MODE", {"mode": "STABILIZE"}),
     (r"\bloiter\b",                     "SET_MODE", {"mode": "LOITER"}),
     (r"\bhov(?:er)?\b",                 "SET_MODE", {"mode": "LOITER"}),
@@ -122,6 +136,7 @@ _FUZZY_VOCAB = [
     # ── ARM ──────────────────────────────────────────────────────────────────
     ("drone arm",                       "ARM",      {}),
     ("drone and",                       "ARM",      {}),
+    ("drone m",                         "ARM",      {}),
     ("arm the drone",                   "ARM",      {}),
     ("arm motors",                      "ARM",      {}),
     ("arm it",                          "ARM",      {}),
@@ -148,11 +163,11 @@ _FUZZY_VOCAB = [
     ("go forward",                      "MOVE",     {"direction": "forward"}),
     ("fly forward",                     "MOVE",     {"direction": "forward"}),
     ("move for",                        "MOVE",     {"direction": "forward"}),  # mishear fix
-    ("move for what",                        "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move for what",                   "MOVE",     {"direction": "forward"}),  # mishear fix
     ("move for one",                    "MOVE",     {"direction": "forward"}),  # mishear fix
-    ("move 4 what",                   "MOVE",     {"direction": "forward"}),  # mishear fix
-    ("move 4 one",                        "MOVE",     {"direction": "forward"}),  # mishear fix
-    ("move for 1",                        "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move 4 what",                     "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move 4 one",                      "MOVE",     {"direction": "forward"}),  # mishear fix
+    ("move for 1",                      "MOVE",     {"direction": "forward"}),  # mishear fix
 
     # ── MOVE BACKWARD ────────────────────────────────────────────────────────
     ("move backward",                   "MOVE",     {"direction": "backward"}),
@@ -201,7 +216,7 @@ _FUZZY_VOCAB = [
     ("10 right",                        "ROTATE",   {"direction": "right"}),
     ("rotate right",                    "ROTATE",   {"direction": "right"}),
     ("yaw right",                       "ROTATE",   {"direction": "right"}),
-    ("and right",                       "ROTATE",   {"direction": "right"}),  # mishear fix
+    #("and right",                       "ROTATE",   {"direction": "right"}),  # mishear fix
 
     # ── MODES ────────────────────────────────────────────────────────────────
     ("guided mode",                     "SET_MODE", {"mode": "GUIDED"}),
@@ -222,7 +237,7 @@ _FUZZY_VOCAB = [
     ("go home",                         "RTL",      {}),
     ("come back",                       "RTL",      {}),
     ("fly home",                        "RTL",      {}),
-    ("and hold",                        "RTL",      {}),   # mishear fix
+    #("and hold",                        "RTL",      {}),   # mishear fix
     ("come on home",                    "RTL",      {}),
     ("on home",                         "RTL",      {}),
 ]

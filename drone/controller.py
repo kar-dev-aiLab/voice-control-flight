@@ -129,17 +129,17 @@ class DroneController:
     def wait_for(self, condition: Callable[[], bool], timeout: float = 5.0):
         
         start = time.time()
-        last_true_time = None
+        #last_true_time = None
 
         while time.time() - start < timeout:
 
             if condition():
-                if last_true_time is None:
-                    last_true_time = time.time()
-                elif time.time() - last_true_time > 0.1:
-                    return True
-            else:
-                last_true_time = None
+                return True
+                #if last_true_time is None:
+                #    last_true_time = time.time()
+                #elif time.time() - last_true_time > 0.1:
+            #else:
+            #    last_true_time = None
 
             time.sleep(0.05)
 

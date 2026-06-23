@@ -7,7 +7,6 @@ os.environ["HF_HUB_OFFLINE"] = "1"   # never attempt network calls for model che
 from RealtimeSTT import AudioToTextRecorder
 import re
 import sys
-import time
 import logging
 import threading
 import multiprocessing
@@ -17,6 +16,7 @@ import multiprocessing
 from utils.config import (
     STT_MODEL,
     STT_LANGUAGE,
+    STT_COMPUTE_TYPE,
     STT_INITIAL_PROMPT,
     STT_WEBRTC_SENSITIVITY,
     STT_SILERO_SENSITIVITY,
@@ -34,10 +34,12 @@ class STTEngine:
 
     def __init__(self):
         logger.info(f"Initializing STT — model={STT_MODEL!r}, language={STT_LANGUAGE!r}")
+        self._shutdown = False
 
         self.recorder: AudioToTextRecorder = AudioToTextRecorder(
             model=STT_MODEL,
             language=STT_LANGUAGE,
+            compute_type=STT_COMPUTE_TYPE,
             initial_prompt=STT_INITIAL_PROMPT,
             webrtc_sensitivity=STT_WEBRTC_SENSITIVITY,
             silero_sensitivity=STT_SILERO_SENSITIVITY,
@@ -56,8 +58,12 @@ class STTEngine:
         Block until one utterance is transcribed.
         Returns cleaned, lowercased text. Empty string if filtered.
         """
+        if self._shutdown:
+            return ""
         raw = self.recorder.text()
-        logger.info(f"[STT RAW] {raw!r}")
+        if self._shutdown:
+            return ""
+        #logger.info(f"[STT RAW] {raw!r}")
         return self._clean(raw)
 
 
@@ -75,6 +81,7 @@ class STTEngine:
           5. Terminate any remaining child processes directly
           6. Restore stderr and return — os._exit(0) fires from main()
         """
+        self._shutdown = True 
 
         # ── Step 1: Silence all loggers immediately ──────────────────
         logging.disable(logging.CRITICAL)
@@ -144,12 +151,13 @@ class STTEngine:
             return ""
 
         if text in STT_HALLUCINATION_PHRASES:
-            logger.info(f"[STT FILTERED] hallucination: {raw!r}")
+            #logger.info(f"[STT FILTERED] hallucination: {raw!r}")
             return ""
 
         deduped = self._deduplicate(text)
         if deduped != text:
-            logger.info(f"[STT DEDUPED] {text!r} → {deduped!r}")
+            #logger.info(f"[STT DEDUPED] {text!r} → {deduped!r}")
+            pass
 
         return deduped
 

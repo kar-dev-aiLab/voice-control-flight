@@ -33,9 +33,9 @@ def main():
 
     voice = VoiceController(executor)
 
-    voice.run()
-    os._exit(0)
+    voice.run() 
 
 
 if __name__ == "__main__":
     main()
+    os._exit(0)

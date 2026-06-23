@@ -27,6 +27,11 @@ class VoiceController:
     # ----------------------------------------------------------
     _DISCONNECT_PHRASES = {
         "disconnect",
+        "this connect",
+        "this connected",
+        "dis connect",
+        "disco nect",
+        "disconnect the drone",
         "drone disconnect",
         "disconadge",
         "shutdown",
@@ -60,7 +65,7 @@ class VoiceController:
 
                 print("\nListening...")
                 text = self.stt.listen()
-                print(f"[STT] returned: {text!r}")
+                #print(f"[STT] returned: {text!r}")
 
                 if not text:
                     continue
@@ -102,6 +107,7 @@ class VoiceController:
             pass   # clean exit — falls through to finally
 
         except KeyboardInterrupt:
+            
             print("\n[SHUTDOWN] Ctrl+C received.")
 
         finally:
