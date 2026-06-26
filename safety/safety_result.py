@@ -6,4 +6,4 @@ from dataclasses import dataclass
 class SafetyResult:
     allowed: bool
     reason: str
-    risk_level: str  # LOW / MEDIUM / HIGH
+    risk_level: str     # LOW / MEDIUM / HIGH

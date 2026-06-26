@@ -14,6 +14,8 @@ DEFAULT_TAKEOFF_ALTITUDE =  10          # metres
 MOVE_SPEED               =  8.0         # Velocity magnitude for move commands (m/s)
 MOVE_DURATION            =  1.5         # Duration to send velocity setpoints (seconds)
 YAW_RATE                 =  30.0        # Yaw rate for rotate commands (deg/s)
+AIRBORNE_THRESHOLD       =  0.5         # Minimum relative altitude (m) required 
+                                        # before move/rotate commands are allowed.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STT: Model

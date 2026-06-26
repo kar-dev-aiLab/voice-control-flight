@@ -3,16 +3,15 @@
 import os
 import logging
 
-# ── Suppress noisy third-party output ────────────────────────────────────────
+# Suppress noisy third-party output
 # ctranslate2 C++ warning: "compute type converted from float16 to float32"
 os.environ["CT2_VERBOSE"] = "0"
 
-# faster_whisper logs "Processing audio..." and "VAD filter removed..." every single utterance
+# faster_whisper logs
 logging.getLogger("faster_whisper").setLevel(logging.WARNING)
 
-# RealtimeSTT logs through the root logger: "Initializing faster_whisper model..."
+# RealtimeSTT logs through the root logger
 logging.getLogger("root").setLevel(logging.WARNING)
-# ─────────────────────────────────────────────────────────────────────────────
 
 from drone.controller import DroneController
 from drone.command_executor import CommandExecutor

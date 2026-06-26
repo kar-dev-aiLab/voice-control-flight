@@ -3,19 +3,15 @@
 
 import time
 import logging
+import threading
 from pymavlink import mavutil
+
 from .command_result import CommandResult
 from safety.safety_manager import SafetyManager
+from utils.config import (MOVE_SPEED, MOVE_DURATION, YAW_RATE)
 
 
 logger = logging.getLogger("CommandExecutor")
-
-# Velocity magnitude for move commands (m/s)
-MOVE_SPEED      = 8.0
-# Duration to send velocity setpoints (seconds)
-MOVE_DURATION   = 1.5
-# Yaw rate for rotate commands (deg/s)
-YAW_RATE        = 30.0
 
 class CommandExecutor:
 
@@ -30,6 +26,9 @@ class CommandExecutor:
         self.wait_for_ack = controller.wait_for_ack
         self.safety       = SafetyManager()
 
+        # Emergency interrupt — set by LAND/RTL/DISARM to break move() loop
+        self._move_interrupt = threading.Event()
+
     # =========================================================
     # CORE EXECUTION ENGINE
     # =========================================================
@@ -37,10 +36,10 @@ class CommandExecutor:
 
         start_time = time.time()
 
-        # 1 >> Send command
+        # 1 --> Send command
         send_fn()
 
-        # 2 >> Wait for ACK
+        # 2 --> Wait for ACK
         ack = self.wait_for_ack(ack_cmd)
 
         if ack is None:
@@ -49,7 +48,7 @@ class CommandExecutor:
         if ack != mavutil.mavlink.MAV_RESULT_ACCEPTED:
             return self._build_result(name, False, f"ACK_REJECTED:{ack}", False, start_time, ack_code=ack)
 
-        # 3 >> Wait for STATE
+        # 3 --> Wait for STATE
         ok = self.wait_for(state_check, timeout)
 
         if not ok:
@@ -118,6 +117,10 @@ class CommandExecutor:
     def disarm(self):
         
         start_time = time.time()
+
+        # Interrupt any active move() loop before disarming
+        self._move_interrupt.set()
+
         # Already disarmed (RTL auto-lands and disarms) — treat as success
         if not self.state.armed:
             return self._build_result("DISARM", True, "ALREADY_DISARMED", True, start_time)
@@ -228,6 +231,9 @@ class CommandExecutor:
         """
         start_time = time.time()
 
+        # Interrupt any active move() loop before sending LAND
+        self._move_interrupt.set()
+
         decision = self.safety.check_mode(self.state, "LAND")
 
         if not decision.allowed:
@@ -245,7 +251,7 @@ class CommandExecutor:
         if ok:
             return self._build_result("LAND", True, "LANDED", True, start_time)
 
-        # Mode switched but didn't see disarm within 30 s — still report partial success
+        # Mode switched but didn't see disarm within 30 s
         return self._build_result("LAND", True, "DESCENDING", True, start_time)
 
     # =========================================================
@@ -284,9 +290,22 @@ class CommandExecutor:
 
         vx, vy, vz = velocity_map[direction]
 
-        # Velocity commands don't produce COMMAND_ACK — send for MOVE_DURATION seconds
+        # Clear any previous interrupt before starting
+        self._move_interrupt.clear()
+
+        # Velocity commands don't produce COMMAND_ACK
+        # send for MOVE_DURATION seconds
         deadline = time.time() + MOVE_DURATION
+        interrupted = False
+
         while time.time() < deadline:
+
+            # Check for emergency interrupt every iteration
+            if self._move_interrupt.is_set():
+                interrupted = True
+                logger.warning(f"[MOVE] Interrupted by emergency command.")
+                break
+
             self.conn.mav.set_position_target_local_ned_send(
                 0,                                              # time_boot_ms (ignored)
                 self.conn.target_system,
@@ -299,8 +318,23 @@ class CommandExecutor:
                 0, 0                                            # yaw, yaw_rate (ignored)
             )
             time.sleep(0.05)   # 20 Hz
-
-        return self._build_result("MOVE", True, f"MOVE_{direction}", True, start_time)
+        
+        # Only send stop command if interrupted by emergency — not on normal completion
+        if interrupted:
+            self.conn.mav.set_position_target_local_ned_send(
+                0,
+                self.conn.target_system,
+                self.conn.target_component,
+                mavutil.mavlink.MAV_FRAME_BODY_OFFSET_NED,
+                0b0000_1111_1100_0111,
+                0, 0, 0,
+                0.0, 0.0, 0.0,
+                0, 0, 0,
+                0, 0
+            )
+            logger.info("[MOVE] Zero velocity sent — drone stopped.")
+        status = f"MOVE_{direction}_INTERRUPTED" if interrupted else f"MOVE_{direction}"
+        return self._build_result("MOVE", True, status, True, start_time)
 
     # =========================================================
     # ROTATE
@@ -351,6 +385,9 @@ class CommandExecutor:
         Switch to RTL mode. Drone will fly home and land automatically.
         """
         start_time = time.time()
+
+        # Interrupt any active move() loop before sending RTL
+        self._move_interrupt.set()
 
         decision = self.safety.check_mode(self.state, "RTL")
 

@@ -6,7 +6,11 @@ import threading
 import logging
 from pymavlink import mavutil
 from collections import deque
-from typing import Any, Callable, Optional
+from typing import (Any, Callable, Optional)
+
+from .connection import connect_vehicle
+from .telemetry import get_heartbeat
+from utils.config import HEARTBEAT_TIMEOUT
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,33 +19,38 @@ logging.basicConfig(
 
 logger = logging.getLogger("DroneController")
 
-
+# ─────────────────────────────────────────────────────────────────────────────
+# DRONE STATE  (single source of truth for the parts of the system)
+# ─────────────────────────────────────────────────────────────────────────────
 class DroneState:
     """
-    Central state container (single source of truth).
+    Shared state container updated continuously by the telemetry thread.
     """
     def __init__(self):
         
-        # declare attributes with types to satisfy static type checkers
-        self.armed: bool = False
-        self.mode: Optional[str] = None
-        self.last_heartbeat: Any = None
-        self.system_status: Any = None
+        self.armed: bool               = False
+        self.mode: Optional[str]       = None
+        self.last_heartbeat: Any       = None
+        self.system_status: Any        = None
         self.altitude: Optional[float] = None
         
-
+# ─────────────────────────────────────────────────────────────────────────────
+# DRONE CONTROLLER
+# ─────────────────────────────────────────────────────────────────────────────
 class DroneController:
 
     def __init__(self, connection_string: str):
-        self.conn: Any = mavutil.mavlink_connection(connection_string)
-        self.state = DroneState()
-        self.ack_buffer = deque(maxlen=50)
-        self._ack_lock = threading.Lock()
+        """
+        Connect to the vehicle and start the live telemetry thread.
+        """
+        self.conn: Any                  = connect_vehicle(connection_string)
+        self.state : DroneState         = DroneState()
+        self.ack_buffer: deque          = deque(maxlen=50)
+        self._ack_lock: threading.Lock  = threading.Lock()
+        
+        # capture another heartbeat to read armed/mode/system_status
+        hb = get_heartbeat(self.conn, timeout=HEARTBEAT_TIMEOUT)
 
-        print("Waiting for heartbeat...")
-        hb = self.conn.wait_heartbeat()   # capture the heartbeat from SITL
-
-        # ── Seed state from first heartbeat so system_status is never None ──
         if hb:
             self.state.system_status  = hb.system_status
             self.state.mode           = mavutil.mode_string_v10(hb)
@@ -50,23 +59,35 @@ class DroneController:
             self.state.armed = bool(
                 hb.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
             )
+        else:
+            logger.warning("[INIT] State-seed heartbeat timed out.")
 
-        # ── Identify this connection as a GCS ──
+        # Identify this connection as a GCS; required so ArduCopter
+        # accepts our COMMAND_LONG messages.
         self.conn.mav.srcSystem = 255
 
         self._start_telemetry_thread()
+
         print(f"Connected to system {self.conn.target_system}")
 
-    # =========================================================
-    # TELEMETRY LOOP (STATE MACHINE INPUT FEED)
-    # =========================================================
+    # ====================================================================
+    # TELEMETRY LOOP (background thread; runs for the lifetime of the app)
+    # ====================================================================
+
     def _start_telemetry_thread(self):
 
-        thread = threading.Thread(target=self._telemetry_loop, daemon=True)
+        thread = threading.Thread(
+            target=self._telemetry_loop, 
+            daemon=True,
+            name="DroneController-telemetry",
+            )
         thread.start()
 
 
     def _telemetry_loop(self):
+        """
+        Continuously receive MAVLink messages and update DroneState.
+        """
         while True:
             msg = self.conn.recv_match(blocking=True)
 
@@ -97,12 +118,13 @@ class DroneController:
                 self.state.altitude = msg.relative_alt / 1000.0
 
     # =========================================================
-    # STATE QUERY API
+    # STATE QUERY API (used by CommandExecutor and tests)
     # =========================================================
+
     def set_home_position(self):
         """
-        Set home to current vehicle position.
-        Call once after connection before arming.
+        Tell ArduCopter to treat the vehicle's current position as home.
+        Call once immediately after connection, before arming.
         """
         self.conn.mav.command_long_send(
             self.conn.target_system,
@@ -126,26 +148,20 @@ class DroneController:
     # =========================================================
     # GENERIC STATE WAITER (CORE ENGINE)
     # =========================================================
-    def wait_for(self, condition: Callable[[], bool], timeout: float = 5.0):
+
+    def wait_for(self, condition: Callable[[], bool], timeout: float = 5.0) -> bool:
         
         start = time.time()
-        #last_true_time = None
 
         while time.time() - start < timeout:
 
             if condition():
                 return True
-                #if last_true_time is None:
-                #    last_true_time = time.time()
-                #elif time.time() - last_true_time > 0.1:
-            #else:
-            #    last_true_time = None
-
             time.sleep(0.05)
 
         return False
     
-    def wait_for_ack(self, command, timeout=2.0):
+    def wait_for_ack(self, command: int, timeout: float = 2.0) -> Optional[int]:
 
         start = time.time()
 

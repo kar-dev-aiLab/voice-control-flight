@@ -2,17 +2,13 @@
 # Wraps RealtimeSTT + cleaning pipeline for drone command recognition.
 
 import os
-os.environ["HF_HUB_OFFLINE"] = "1"   # never attempt network calls for model checks
-
-from RealtimeSTT import AudioToTextRecorder
 import re
 import sys
 import logging
 import threading
 import multiprocessing
-# pyright: reportAttributeAccessIssue=false
-# pyright: reportOptionalMemberAccess=false
 
+from RealtimeSTT import AudioToTextRecorder
 from utils.config import (
     STT_MODEL,
     STT_LANGUAGE,
@@ -26,6 +22,11 @@ from utils.config import (
     STT_MIN_GAP_RECORDINGS,
     STT_HALLUCINATION_PHRASES,
 )
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
+
+# never attempt network calls for model checks
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 logger = logging.getLogger("STTEngine")
 
@@ -70,23 +71,13 @@ class STTEngine:
     def stop(self):
         """
         Shut down the STT recorder cleanly on Windows.
-
-        Sequence:
-          1. Silence all loggers — no more output after disconnect
-          2. Signal recorder to abort current transcription
-          3. Redirect stderr to null — suppresses Windows pipe error spam
-             (WinError 232 broken pipe, WinError 6 invalid handle)
-          4. Call recorder.stop() in a thread with a 2-second timeout
-             — if it hangs on a Windows named pipe, we don't wait forever
-          5. Terminate any remaining child processes directly
-          6. Restore stderr and return — os._exit(0) fires from main()
         """
         self._shutdown = True 
 
-        # ── Step 1: Silence all loggers immediately ──────────────────
+        # Step 1: Silence all loggers immediately
         logging.disable(logging.CRITICAL)
 
-        # ── Step 2: Signal abort to subprocess ───────────────────────
+        # Step 2: Signal abort to subprocess
         try:
             self.recorder.abort()
         except Exception:
@@ -99,10 +90,7 @@ class STTEngine:
         except Exception:
             _devnull = None
 
-        # ── Step 4: recorder.stop() with timeout ─────────────────────
-        # On Windows, recorder.stop() can hang if the audio subprocess
-        # pipe is in a blocking read. Run it in a thread and abandon
-        # it after 2 seconds if it doesn't return.
+        # Step 4: recorder.stop() with timeout
         def _stop_recorder():
             try:
                 self.recorder.stop()
@@ -114,10 +102,7 @@ class STTEngine:
         stop_thread.join(timeout=2.0)
         # If still alive after 2s, we move on — os._exit(0) will kill it
 
-        # ── Step 5: Terminate any lingering child processes ───────────
-        # RealtimeSTT spawns audio_process and transcript_process.
-        # If recorder.stop() timed out, they are still alive.
-        # multiprocessing.active_children() lists all of them.
+        # Step 5: Terminate any lingering child processes
         for child in multiprocessing.active_children():
             try:
                 child.terminate()
@@ -125,7 +110,7 @@ class STTEngine:
             except Exception:
                 pass
 
-        # ── Step 6: Restore stderr ────────────────────────────────────
+        # Step 6: Restore stderr
         try:
             sys.stderr = sys.__stderr__
             if _devnull:
@@ -167,9 +152,6 @@ class STTEngine:
         Remove repeated phrase segments from VAD echo capture.
         'go down go down go down' → 'go down'
         'turn left turn left'     → 'turn left'
-
-        Iterates from smallest chunk upward so the minimal repeating
-        unit is always found first (e.g. 'go down' not 'go down go down go down').
         """
         words = text.split()
         if len(words) < 4:

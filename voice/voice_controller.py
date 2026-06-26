@@ -11,7 +11,9 @@ from voice.command_router import CommandRouter
 
 
 class _ShutdownRequested(Exception):
-    """Raised internally when the operator says 'disconnect'."""
+    """
+    Raised internally when the operator says 'disconnect'.
+    """
     pass
 
 
@@ -20,11 +22,11 @@ class VoiceController:
     # Actions that bypass the command lock — always executable
     _EMERGENCY_ACTIONS = {"LAND", "RTL", "DISARM"}
 
-    # ----------------------------------------------------------
+    # ====================================================================
     # SHUTDOWN TRIGGER PHRASES
     # Words that immediately stop the voice loop.
     # Add variants here if STT mishears "disconnect".
-    # ----------------------------------------------------------
+    # ====================================================================
     _DISCONNECT_PHRASES = {
         "disconnect",
         "this connect",
@@ -72,7 +74,7 @@ class VoiceController:
 
                 print(f"Heard:  {text!r}")
 
-                # -- Shutdown gate (checked before intent parsing)
+                # Shutdown gate (checked before intent parsing)
                 if self._is_disconnect(text):
                     print("\n[SHUTDOWN] Disconnect command received.")
                     raise _ShutdownRequested
@@ -84,14 +86,14 @@ class VoiceController:
                     print("(No matching command — ignoring)")
                     continue
 
-                # -- Emergency commands always execute immediately
+                # Emergency commands always execute immediately
                 if self._is_emergency(intent.action):
                     print(f"[EMERGENCY] {intent.action} — executing immediately.")
                     result = self.router.route(intent)
                     print(f"Result: {result}")
                     continue
 
-                # -- Normal commands: skip if another command is running
+                # Normal commands: skip if another command is running
                 acquired = self._command_lock.acquire(blocking=False)
                 if not acquired:
                     print(f"[BUSY] '{intent.action}' ignored — command already executing.")
@@ -104,17 +106,13 @@ class VoiceController:
                     self._command_lock.release()
 
         except _ShutdownRequested:
-            pass   # clean exit — falls through to finally
+            pass
 
         except KeyboardInterrupt:
-            
             print("\n[SHUTDOWN] Ctrl+C received.")
 
         finally:
-            # Print goodbye BEFORE stt.stop() silences logging
             print("\n[SHUTDOWN] Disconnect command received. Shutting down...")
             print("[SHUTDOWN] Stopping STT engine...")
             self.stt.stop()
-            # stt.stop() has already silenced logging and suppressed pipe errors.
-            # os._exit(0) fires from main() immediately after run() returns.
             print("[SHUTDOWN] Vox-Flight disconnected successfully.\n")

@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.pyc
+voice_drone_server.py
 
 # Virtual environments
 .venv/

@@ -4,17 +4,10 @@
 # Two-stage pipeline:
 #   Stage 1 — EXACT:  word-boundary regex. Fast, zero false positives.
 #   Stage 2 — FUZZY:  rapidfuzz against multi-word phrases ONLY.
-#
-# Operator phrase vocabulary (tuned from diagnostic results):
-#   "drone arm"     "drone disarm"    "drone takeoff"   "drone land"
-#   "move forward"  "move backward"   "slide left"      "move right"
-#   "go up"         "go down"         "turn left"       "turn right"
-#   "guided mode"   "stabilize mode"  "loiter mode"     "come home"
 
 import re
 import logging
 from rapidfuzz import process, fuzz
-
 from utils.config import STT_FUZZY_THRESHOLD
 
 logger = logging.getLogger("IntentParser")
@@ -36,7 +29,7 @@ class Intent:
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 1 — EXACT MATCH
 # Order matters:
-#   DISARM before ARM, TURN before bare LEFT/RIGHT, LAND before LOITER
+# DISARM before ARM, TURN before bare LEFT/RIGHT, LAND before LOITER
 # ─────────────────────────────────────────────────────────────────────────────
 
 _EXACT_CHECKS = [
@@ -44,7 +37,7 @@ _EXACT_CHECKS = [
     # misclassified as MOVE instead of ROTATE.
     (r"\b10\s+right\b",                 "ROTATE",   {"direction": "right"}),
     (r"\b10\s+left\b",                  "ROTATE",   {"direction": "left"}),
-    (r"\b10[\s-]love[d]?\b",            "ROTATE",   {"direction": "left"}),  # "10-loved"
+    (r"\b10\s+loved?\b",                "ROTATE",   {"direction": "left"}),
 
     # ── ROTATE mishear guard ──────────────────────────────────────────────────
     (r"\btan\s+or\s+right\b",           "ROTATE",   {"direction": "right"}),
@@ -57,8 +50,8 @@ _EXACT_CHECKS = [
     (r"\barm\b",                        "ARM",      {}),
     (r"\bdrone\s+arm\b",                "ARM",      {}),
     (r"\barm\s+(?:the\s+)?drone\b",     "ARM",      {}),
-    (r"^arm$",                          "ARM",      {}),   # bare "arm" only if it's the entire utterance
-
+    (r"^arm$",                          "ARM",      {}),
+    
     # ── TAKEOFF / LAND ───────────────────────────────────────────────────────
     (r"\btake\s*off\b",                 "TAKEOFF",  {}),
     (r"\blift\s*off\b",                 "TAKEOFF",  {}),
@@ -94,16 +87,11 @@ _EXACT_CHECKS = [
     (r"\bfly\s+right\b",                "MOVE",     {"direction": "right"}),
     
     # ── MOVE: up / down ──────────────────────────────────────────────────────
-    #(r"\bascend\b",                     "MOVE",     {"direction": "up"}),
     (r"\bclimb\b",                      "MOVE",     {"direction": "up"}),
     (r"\bgo\s+up\b",                    "MOVE",     {"direction": "up"}),
-    (r"\bmove\s+up\b",                  "MOVE",     {"direction": "up"}),
     (r"\bfly\s+up\b",                   "MOVE",     {"direction": "up"}),
-    #(r"\bdescend\b",                    "MOVE",     {"direction": "down"}),
-    #(r"\bgo\s+down\b",                  "MOVE",     {"direction": "down"}),
-    (r"\b(move\s+down|descend)\b",      "MOVE",     {"direction": "down"}),
     (r"\b(move\s+up|ascend)\b",         "MOVE",     {"direction": "up"}),
-    (r"\bmove\s+down\b",                "MOVE",     {"direction": "down"}),
+    (r"\b(move\s+down|descend)\b",      "MOVE",     {"direction": "down"}),
     (r"\bfly\s+down\b",                 "MOVE",     {"direction": "down"}),
 
     # ── MODES ────────────────────────────────────────────────────────────────
@@ -204,6 +192,7 @@ _FUZZY_VOCAB = [
     ("tan or left",                     "ROTATE",   {"direction": "left"}),
     ("tenor left",                      "ROTATE",   {"direction": "left"}),
     ("10 left",                         "ROTATE",   {"direction": "left"}),   # mishear fix
+    ("10 love",                         "ROTATE",   {"direction": "left"}),   # mishear fix
     ("10 loved",                        "ROTATE",   {"direction": "left"}),   # mishear fix
     ("turn the left",                   "ROTATE",   {"direction": "left"}),
     ("rotate left",                     "ROTATE",   {"direction": "left"}),
@@ -216,7 +205,6 @@ _FUZZY_VOCAB = [
     ("10 right",                        "ROTATE",   {"direction": "right"}),
     ("rotate right",                    "ROTATE",   {"direction": "right"}),
     ("yaw right",                       "ROTATE",   {"direction": "right"}),
-    #("and right",                       "ROTATE",   {"direction": "right"}),  # mishear fix
 
     # ── MODES ────────────────────────────────────────────────────────────────
     ("guided mode",                     "SET_MODE", {"mode": "GUIDED"}),
@@ -237,7 +225,6 @@ _FUZZY_VOCAB = [
     ("go home",                         "RTL",      {}),
     ("come back",                       "RTL",      {}),
     ("fly home",                        "RTL",      {}),
-    #("and hold",                        "RTL",      {}),   # mishear fix
     ("come on home",                    "RTL",      {}),
     ("on home",                         "RTL",      {}),
 ]
