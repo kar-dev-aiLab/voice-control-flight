@@ -6,7 +6,8 @@ from drone.command_executor import CommandExecutor
 
 print("[TEST] Connecting...")
 ctrl = DroneController("udpin:0.0.0.0:14560")
-time.sleep(2)   # let telemetry stabilize
+# let telemetry stabilize
+time.sleep(2)
 
 ex = CommandExecutor(ctrl)
 
@@ -26,7 +27,8 @@ check("ARM",              ex.arm())
 time.sleep(2)
 
 check("TAKEOFF 5m",       ex.takeoff(5.0))
-time.sleep(3)   # let it stabilize at altitude
+# let it stabilize at altitude
+time.sleep(3)
 
 check("MOVE FORWARD",     ex.move("FORWARD"))
 time.sleep(1)
@@ -44,7 +46,8 @@ check("ROTATE LEFT",      ex.rotate("LEFT"))
 time.sleep(1)
 
 check("RTL",              ex.rtl())
-time.sleep(5)   # wait for it to return and land
+# wait for it to return and land
+time.sleep(5)
 
 # Wait for drone to land and auto-disarm 
 # (RTL lands and disarms automatically)
@@ -57,7 +60,7 @@ while time.time() < deadline:
         break
     time.sleep(1.0)
 else:
-    print("⚠️  RTL timeout — attempting manual disarm")
+    print("⚠️  RTL timeout, attempting manual disarm")
     check("DISARM", ex.disarm())
     
 print("\n✅ Full sequence complete.")

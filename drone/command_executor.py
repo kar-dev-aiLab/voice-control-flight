@@ -8,7 +8,11 @@ from pymavlink import mavutil
 
 from .command_result import CommandResult
 from safety.safety_manager import SafetyManager
-from utils.config import (MOVE_SPEED, MOVE_DURATION, YAW_RATE)
+from utils.config import (
+    MOVE_SPEED, 
+    MOVE_DURATION,
+    YAW_ANGLE, 
+    YAW_RATE)
 
 
 logger = logging.getLogger("CommandExecutor")
@@ -150,9 +154,8 @@ class CommandExecutor:
 
     def _set_mode_raw(self, mode_name: str, start_time: float, timeout: float = 5.0):
         """
-        Send a mode change and wait for state confirmation.
-        Returns a CommandResult. start_time must be provided by the caller
-        so latency is measured from the public method entry point.
+        Send a mode change via MAV_CMD_DO_SET_MODE (ACK-producing) and
+        wait for both the MAVLink acknowledgement and the state update.
         """
         mode_map = self.conn.mode_mapping()
 
@@ -161,14 +164,26 @@ class CommandExecutor:
 
         mode_id = mode_map[mode_name]
 
-        self.conn.mav.set_mode_send(
+        self.conn.mav.command_long_send(
             self.conn.target_system,
+            self.conn.target_component,
+            mavutil.mavlink.MAV_CMD_DO_SET_MODE,
+            0, 
             mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-            mode_id
+            mode_id,
+            0, 0, 0, 0, 0 
         )
+        
+        # Wait for MAVLink ACK first
+        ack = self.wait_for_ack(mavutil.mavlink.MAV_CMD_DO_SET_MODE, timeout=2.0)
+        if ack is None:
+            return self._build_result("SET_MODE", False, "ACK_TIMEOUT", False, start_time)
 
+        if ack != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+            return self._build_result("SET_MODE", False, f"ACK_REJECTED:{ack}", False, start_time)
+        
+        # Then wait for state to confirm
         ok = self.wait_for(lambda: self.state.mode == mode_name, timeout)
-
         if ok:
             return self._build_result("SET_MODE", True, "SUCCESS", True, start_time)
 
@@ -252,7 +267,7 @@ class CommandExecutor:
             return self._build_result("LAND", True, "LANDED", True, start_time)
 
         # Mode switched but didn't see disarm within 30 s
-        return self._build_result("LAND", True, "DESCENDING", True, start_time)
+        return self._build_result("LAND", False, "DESCENDING", False, start_time)
 
     # =========================================================
     # MOVE
@@ -361,15 +376,15 @@ class CommandExecutor:
 
         return self.execute_command(
             "ROTATE",
-            send_fn=lambda: self.conn.mav.command_long_send(
+            send_fn=lambda yr=yaw_rate: self.conn.mav.command_long_send(
                 self.conn.target_system,
                 self.conn.target_component,
                 mavutil.mavlink.MAV_CMD_CONDITION_YAW,
                 0,
-                abs(yaw_rate),  # param1 — target angle (deg) — used as magnitude
-                YAW_RATE,       # param2 — yaw speed (deg/s)
+                YAW_ANGLE,                          # param1 — target angle (deg) to rotate
+                YAW_RATE,                           # param2 — yaw speed (deg/s)
                 1 if direction == "RIGHT" else -1,  # param3 — direction: 1=CW, -1=CCW
-                1,              # param4 — 1 = relative, 0 = absolute
+                1,                                  # param4 — 1 = relative, 0 = absolute
                 0, 0, 0
             ),
             ack_cmd=mavutil.mavlink.MAV_CMD_CONDITION_YAW,

@@ -1,6 +1,6 @@
 # safety_rules.py
 
-from utils.config import AIRBORNE_THRESHOLD
+from utils.config import (AIRBORNE_THRESHOLD, DISARM_SAFE_ALTITUDE)
 
 
 class SafetyRules:
@@ -11,13 +11,16 @@ class SafetyRules:
     def can_arm(self, state):
         if state.system_status is None:
             return False, "NO_HEARTBEAT"
+        
+        if state.armed:
+            return False, "ALREADY_ARMED"
         return True, "OK"
 
     # ─────────────────────────────────────────────────────────────────────────────
     # DISARM
     # ─────────────────────────────────────────────────────────────────────────────
     def can_disarm(self, state):
-        if state.altitude is not None and state.altitude > 1.0:
+        if state.altitude is not None and state.altitude > DISARM_SAFE_ALTITUDE:
             return False, "STILL_AIRBORNE"
         return True, "OK"
 
@@ -31,8 +34,8 @@ class SafetyRules:
         if mode not in allowed:
             return False, "INVALID_MODE"
         
-        # Block STABILIZE while airborne - cuts throttle and disarms in SITL
-        if mode == "STABILIZE" and state.altitude is not None and state.altitude > 0.5:
+        # Block STABILIZE while airborne; cuts throttle and disarms in SITL
+        if mode == "STABILIZE" and state.altitude is not None and state.altitude > AIRBORNE_THRESHOLD:
             return False, "STABILIZE_BLOCKED_AIRBORNE"
         
         return True, "OK"

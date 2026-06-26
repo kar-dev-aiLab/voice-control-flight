@@ -9,9 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from voice.stt_engine import STTEngine
 from voice.intent_parser import IntentParser, Intent
 
-# Phrase-style commands — operator says these, not bare single words
+# Phrase-style commands;
+# not bare single words
 COMMANDS_TO_TEST = [
-    # (phrase to say,         expected action,   expected params)
+    # phrase to say,          expected action,   expected params)
     ("drone arm",             "ARM",             {}),
     ("drone disarm",          "DISARM",          {}),
     ("drone takeoff",         "TAKEOFF",         {}),
@@ -101,9 +102,12 @@ def main():
             f.write(f"       Expected:      {r['exp_action']}  {r['exp_params']}\n\n")
 
     print(f"\nSaved to: {out_path}")
-    import ctypes
-    ctypes.windll.kernel32.TerminateProcess(
-        ctypes.windll.kernel32.GetCurrentProcess(), 
-        0)
+    
+    stt.stop()
+    #import ctypes
+    #ctypes.windll.kernel32.TerminateProcess(
+    #    ctypes.windll.kernel32.GetCurrentProcess(), 
+    #    0)
+    
 if __name__ == "__main__":
     main()

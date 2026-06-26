@@ -13,9 +13,11 @@ HEARTBEAT_TIMEOUT        =  30
 DEFAULT_TAKEOFF_ALTITUDE =  10          # metres
 MOVE_SPEED               =  8.0         # Velocity magnitude for move commands (m/s)
 MOVE_DURATION            =  1.5         # Duration to send velocity setpoints (seconds)
-YAW_RATE                 =  30.0        # Yaw rate for rotate commands (deg/s)
+YAW_ANGLE                =  30.0        # Degrees to rotate per single ROTATE command
+YAW_RATE                 =  30.0        # Rotation speed in deg/s
 AIRBORNE_THRESHOLD       =  0.5         # Minimum relative altitude (m) required 
                                         # before move/rotate commands are allowed.
+DISARM_SAFE_ALTITUDE     =  0.5         # metres; must be on (or near) ground to disarm
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STT: Model
@@ -71,12 +73,32 @@ STT_HALLUCINATION_PHRASES = {
     "down",
     "up", 
     "go",
-    "go down go down",     # in case dedup still misses 2x
     "come on lets go yeah in take",  # pure noise
-    "go down go down go down",
-    "go up go up go up",
-    "move right move right move right",
-    "move left move left move left",
     "and the drone",
     "and drone",
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SHUTDOWN TRIGGER PHRASES
+# Words that immediately stop the voice loop.
+# Add variants here if STT mishears "disconnect".
+# ─────────────────────────────────────────────────────────────────────────────
+_DISCONNECT_PHRASES = {
+    "disconnect",
+    "this connect",
+    "this connected",
+    "dis connect",
+    "disco nect",
+    "disconnect the drone",
+    "drone disconnect",
+    "disconadge",
+    "shutdown",
+    "shut down",
+    "exit",
+    "quit",
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Actions that bypass the command lock, always executable
+# ─────────────────────────────────────────────────────────────────────────────
+_EMERGENCY_ACTIONS = {"LAND", "RTL", "DISARM"}

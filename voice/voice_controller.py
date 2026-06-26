@@ -8,6 +8,7 @@ import threading
 from voice.stt_engine import STTEngine
 from voice.intent_parser import IntentParser
 from voice.command_router import CommandRouter
+from utils.config import (_EMERGENCY_ACTIONS, _DISCONNECT_PHRASES)
 
 
 class _ShutdownRequested(Exception):
@@ -19,29 +20,6 @@ class _ShutdownRequested(Exception):
 
 class VoiceController:
 
-    # Actions that bypass the command lock — always executable
-    _EMERGENCY_ACTIONS = {"LAND", "RTL", "DISARM"}
-
-    # ====================================================================
-    # SHUTDOWN TRIGGER PHRASES
-    # Words that immediately stop the voice loop.
-    # Add variants here if STT mishears "disconnect".
-    # ====================================================================
-    _DISCONNECT_PHRASES = {
-        "disconnect",
-        "this connect",
-        "this connected",
-        "dis connect",
-        "disco nect",
-        "disconnect the drone",
-        "drone disconnect",
-        "disconadge",
-        "shutdown",
-        "shut down",
-        "exit",
-        "quit",
-    }
-
     def __init__(self, executor):
         self.stt    = STTEngine()
         self.parser = IntentParser()
@@ -52,10 +30,10 @@ class VoiceController:
         self._command_lock = threading.Lock()
 
     def _is_disconnect(self, text: str) -> bool:
-        return text.strip().lower() in self._DISCONNECT_PHRASES
+        return text.strip().lower() in _DISCONNECT_PHRASES
 
     def _is_emergency(self, action: str) -> bool:
-        return action in self._EMERGENCY_ACTIONS
+        return action in _EMERGENCY_ACTIONS
 
     def run(self):
 

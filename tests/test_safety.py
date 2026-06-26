@@ -13,7 +13,7 @@ def make_state(armed=False, altitude=0.0, mode="STABILIZE", system_status=1):
     return s
 
 tests = [
-    # (description,                      method,        state_args,                          expect_allowed)
+    # (description,                      method,         state_args,                          expect_allowed)
     ("ARM — no heartbeat",               sm.check_arm,   dict(system_status=None),            False),
     ("ARM — OK",                         sm.check_arm,   dict(),                              True),
     ("TAKEOFF — not armed",              sm.check_takeoff, dict(armed=False),                 False),

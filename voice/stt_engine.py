@@ -25,9 +25,6 @@ from utils.config import (
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportOptionalMemberAccess=false
 
-# never attempt network calls for model checks
-os.environ["HF_HUB_OFFLINE"] = "1"
-
 logger = logging.getLogger("STTEngine")
 
 
@@ -64,7 +61,8 @@ class STTEngine:
         raw = self.recorder.text()
         if self._shutdown:
             return ""
-        #logger.info(f"[STT RAW] {raw!r}")
+        
+        logger.debug(f"[STT RAW] {raw!r}")
         return self._clean(raw)
 
 
@@ -83,32 +81,40 @@ class STTEngine:
         except Exception:
             pass
 
-        # ── Step 3: Redirect stderr to null (Windows pipe error spam) ─
+        # Step 3: Redirect stderr to null (Windows pipe error spam)
+        _original_stderr = sys.stderr
+        _devnull = None
         try:
             _devnull = open(os.devnull, "w")
             sys.stderr = _devnull
-        except Exception:
-            _devnull = None
+        
+            # Step 4: recorder.stop() with timeout
+            def _stop_recorder():
+                try:
+                    self.recorder.stop()
+                except Exception:
+                    pass
 
-        # Step 4: recorder.stop() with timeout
-        def _stop_recorder():
-            try:
-                self.recorder.stop()
-            except Exception:
-                pass
+            stop_thread = threading.Thread(target=_stop_recorder, daemon=True)
+            stop_thread.start()
+            stop_thread.join(timeout=2.0)
+            # If still alive after 2s, move on.
+            # os._exit(0) will kill it
 
-        stop_thread = threading.Thread(target=_stop_recorder, daemon=True)
-        stop_thread.start()
-        stop_thread.join(timeout=2.0)
-        # If still alive after 2s, we move on — os._exit(0) will kill it
-
-        # Step 5: Terminate any lingering child processes
-        for child in multiprocessing.active_children():
-            try:
-                child.terminate()
-                child.join(timeout=1.0)
-            except Exception:
-                pass
+            # Step 5: Terminate any lingering child processes
+            for child in multiprocessing.active_children():
+                try:
+                    child.terminate()
+                    child.join(timeout=1.0)
+                except Exception:
+                    pass
+        finally:
+            sys.stderr = _original_stderr
+            if _devnull:
+                try:
+                    _devnull.close()
+                except Exception:
+                    pass
 
         # Step 6: Restore stderr
         try:
@@ -136,13 +142,12 @@ class STTEngine:
             return ""
 
         if text in STT_HALLUCINATION_PHRASES:
-            #logger.info(f"[STT FILTERED] hallucination: {raw!r}")
+            logger.debug(f"[STT FILTERED] hallucination: {raw!r}")
             return ""
 
         deduped = self._deduplicate(text)
         if deduped != text:
-            #logger.info(f"[STT DEDUPED] {text!r} → {deduped!r}")
-            pass
+            logger.debug(f"[STT DEDUPED] {text!r} → {deduped!r}")
 
         return deduped
 
@@ -161,8 +166,15 @@ class STTEngine:
             chunk = words[:chunk_size]
             repetitions = len(words) // chunk_size
             remainder   = len(words) % chunk_size
+
             if repetitions >= 2 and remainder == 0:
                 if chunk * repetitions == words:
                     return " ".join(chunk)
-
+            
+            # Partial echo: e.g. "go down go down go" | trailing word(s)
+            # match the start of the chunk (captured mid-repetition by VAD)
+            if repetitions >= 2 and 0 < remainder < chunk_size:
+                if chunk * repetitions == words[:chunk_size * repetitions]:
+                    if words[chunk_size * repetitions:] == chunk[:remainder]:
+                        return " ".join(chunk)
         return text

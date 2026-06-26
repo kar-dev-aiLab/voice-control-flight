@@ -143,3 +143,37 @@ class TestFuzzyMatch:
         i = p.parse('stabilize mode')
         assert i.action == 'SET_MODE'
         assert i.params['mode'] == 'STABILIZE'
+
+class TestRotateMishearRegression:
+    """Regression guard for confirmed STT misclassifications."""
+
+    def test_10_right_is_rotate_not_move(self):
+        # Was: MOVE RIGHT. Must be: ROTATE RIGHT.
+        i = p.parse("10 right")
+        assert i.action == "ROTATE"
+        assert i.params["direction"] == "right"
+
+    def test_10_loved_is_rotate_left(self):
+        # Was: UNKNOWN. Must be: ROTATE LEFT.
+        i = p.parse("10 loved")
+        assert i.action == "ROTATE"
+        assert i.params["direction"] == "left"
+
+    def test_10_love_is_rotate_left(self):
+        i = p.parse("10 love")
+        assert i.action == "ROTATE"
+        assert i.params["direction"] == "left"
+
+    def test_ten_right_is_rotate_not_move(self):
+        i = p.parse("ten right")
+        assert i.action == "ROTATE"
+        assert i.params["direction"] == "right"
+
+class TestGoDownNotFiltered:
+    """Regression guard for 'go down' must not be hallucination-filtered."""
+
+    def test_go_down_reaches_parser(self):
+        # If stt_engine filters it, this test catches it at the parser level
+        i = p.parse("go down")
+        assert i.action == "MOVE"
+        assert i.params["direction"] == "down"

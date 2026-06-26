@@ -12,12 +12,11 @@ from .connection import connect_vehicle
 from .telemetry import get_heartbeat
 from utils.config import HEARTBEAT_TIMEOUT
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
-)
-
 logger = logging.getLogger("DroneController")
+
+_TELEMETRY_RECV_TIMEOUT   = 1.0   # seconds per recv_match call
+_MAX_MISSED_HEARTBEATS    = 5     # alert after this many consecutive misses
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DRONE STATE  (single source of truth for the parts of the system)
@@ -47,6 +46,10 @@ class DroneController:
         self.state : DroneState         = DroneState()
         self.ack_buffer: deque          = deque(maxlen=50)
         self._ack_lock: threading.Lock  = threading.Lock()
+
+        # Identify this connection as a GCS; required so ArduCopter
+        # accepts our COMMAND_LONG messages.
+        self.conn.mav.srcSystem = 255
         
         # capture another heartbeat to read armed/mode/system_status
         hb = get_heartbeat(self.conn, timeout=HEARTBEAT_TIMEOUT)
@@ -62,13 +65,9 @@ class DroneController:
         else:
             logger.warning("[INIT] State-seed heartbeat timed out.")
 
-        # Identify this connection as a GCS; required so ArduCopter
-        # accepts our COMMAND_LONG messages.
-        self.conn.mav.srcSystem = 255
-
         self._start_telemetry_thread()
 
-        print(f"Connected to system {self.conn.target_system}")
+        #print(f"Connected to system {self.conn.target_system}")
 
     # ====================================================================
     # TELEMETRY LOOP (background thread; runs for the lifetime of the app)
@@ -88,11 +87,24 @@ class DroneController:
         """
         Continuously receive MAVLink messages and update DroneState.
         """
+        missed_heartbeats = 0
+        
         while True:
-            msg = self.conn.recv_match(blocking=True)
+            msg = self.conn.recv_match(blocking=True, timeout=_TELEMETRY_RECV_TIMEOUT)
 
-            if not msg:
+            if msg is None:
+                # recv_match timed out; no packet arrived within the window
+                missed_heartbeats += 1
+                if missed_heartbeats >= _MAX_MISSED_HEARTBEATS:
+                    logger.critical(
+                        f"[TELEMETRY] No MAVLink packets received for "
+                        f"{missed_heartbeats * _TELEMETRY_RECV_TIMEOUT:.0f}s — "
+                        f"link may be lost. State is STALE."
+                    )
                 continue
+
+            # reset on any successful receive
+            missed_heartbeats = 0
             
             mtype = msg.get_type()
 
@@ -102,7 +114,7 @@ class DroneController:
 
                 self.state.armed = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
 
-                self.state.mode = mavutil.mode_string_v10(msg)
+                self.state.mode  = mavutil.mode_string_v10(msg)
 
                 self.state.system_status = msg.system_status
 
@@ -114,7 +126,7 @@ class DroneController:
                     self.ack_buffer.append(msg)
             
             elif mtype == "GLOBAL_POSITION_INT":
-                # relative_alt is in mm — convert to metres
+                # relative_alt is in mm; convert to metres
                 self.state.altitude = msg.relative_alt / 1000.0
 
     # =========================================================
@@ -123,20 +135,34 @@ class DroneController:
 
     def set_home_position(self):
         """
-        Tell ArduCopter to treat the vehicle's current position as home.
+        Set home to current vehicle position. Waits for MAVLink ACK.
         Call once immediately after connection, before arming.
+        Logs a CRITICAL warning if rejected (e.g. no GPS fix)
         """
         self.conn.mav.command_long_send(
             self.conn.target_system,
             self.conn.target_component,
             mavutil.mavlink.MAV_CMD_DO_SET_HOME,
             0,
-            1,          # param1=1 means use current position
-            0, 0, 0,    # param2-4 unused
-            0, 0, 0     # lat, lon, alt (ignored when param1=1)
+            1,              # param1=1 means use current position
+            0, 0, 0,        # param2-4 unused
+            0, 0, 0         # lat, lon, alt (ignored when param1=1)
         )
-        logger.info("[HOME] Home position set to current location.")
 
+        ack = self.wait_for_ack(mavutil.mavlink.MAV_CMD_DO_SET_HOME, timeout=5.0)
+
+        if ack is None:
+            logger.critical(
+                "[HOME] Set home ACK timed out; RTL destination is undefined. "
+                "Do not use RTL until home is confirmed."
+            )
+        elif ack != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+            logger.critical(
+                f"[HOME] Set home REJECTED (result={ack}); possibly no GPS fix. "
+                f"RTL destination is undefined."
+            )
+        else:
+            logger.info("[HOME] Home position confirmed by vehicle.")
 
     def is_armed(self) -> bool:
         return self.state.armed

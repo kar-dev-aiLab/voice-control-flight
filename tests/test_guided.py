@@ -8,8 +8,8 @@ controller = DroneController(
 )
 executor   = CommandExecutor(controller)
 
-print("Before:", controller.get_mode())
+print("Before: ", controller.get_mode())
 
 executor.set_mode("GUIDED")
 
-print("After:", controller.get_mode())
+print("After: ", controller.get_mode())

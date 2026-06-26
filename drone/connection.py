@@ -18,7 +18,14 @@ def connect_vehicle(CONNECTION_STRING: str) -> Any:
 
     print("Waiting for heartbeat ...")
 
-    conn.wait_heartbeat(timeout=HEARTBEAT_TIMEOUT)
+    hb = conn.wait_heartbeat(timeout=HEARTBEAT_TIMEOUT)
+
+    if hb is None or conn.target_system == 0:
+        raise ConnectionError(
+            f"[TIMEOUT] No MAVLink heartbeat received within {HEARTBEAT_TIMEOUT}s "
+            f"on {CONNECTION_STRING}. Check that SITL or Mission Planner "
+            f"is running and the connection string is correct."
+        )
 
     print(
         f"Connected to system {conn.target_system},"
